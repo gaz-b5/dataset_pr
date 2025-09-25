@@ -61,3 +61,23 @@ for epoch in range(5):
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
+
+for epoch in range(5):
+    total_correct = 0
+    total_samples = 0
+    for inputs, labels in dataloader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+
+        # Calculate accuracy
+        _, predicted = torch.max(outputs, 1)
+        total_correct += (predicted == labels).sum().item()
+        total_samples += labels.size(0)
+
+    accuracy = total_correct / total_samples
+    print(f'Epoch {epoch + 1}, Loss: {loss.item():.4f}, Accuracy: {accuracy:.4f}')
+
+
