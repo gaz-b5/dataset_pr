@@ -1,0 +1,63 @@
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+# --- Dataset Class (already started in your notebook) ---
+class TextDataset(torch.utils.data.Dataset):
+    def __init__(self, df):
+        self.items = list(zip(df['Numericalized'], df['Emotion']))
+        self.label_map = {label: idx for idx, label in enumerate(df['Emotion'].unique())}
+    def __len__(self):
+        return len(self.items)
+    def __getitem__(self, idx):
+        x, y = self.items[idx]
+        # Convert x to tensor and pad as needed for batching
+        x = torch.tensor(x, dtype=torch.long)
+        y = torch.tensor(self.label_map[y], dtype=torch.long)
+        return x, y
+
+# --- Collate Function for Padding ---
+from torch.nn.utils.rnn import pad_sequence
+
+def collate_fn(batch):
+    xs, ys = zip(*batch)
+    xs_pad = pad_sequence(xs, batch_first=True)
+    ys = torch.stack(ys)
+    return xs_pad, ys
+
+# --- Model Definition ---
+class RNNClassifier(nn.Module):
+    def __init__(self, vocab_size, emb_dim, hidden_dim, num_classes):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, emb_dim)
+        self.rnn = nn.LSTM(emb_dim, hidden_dim, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, num_classes)
+    def forward(self, x):
+        x = self.embedding(x)
+        _, (hn, _) = self.rnn(x)
+        out = self.fc(hn.squeeze(0))
+        return out
+
+# --- Data Loading ---
+# Assume 'df' is your dataframe and stoi contains vocab mapping
+dataset = TextDataset(df)
+dataloader = DataLoader(dataset, batch_size=32, collate_fn=collate_fn, shuffle=True)
+
+# --- Model Instantiation ---
+vocab_size = len(stoi)
+emb_dim = 64
+hidden_dim = 128
+num_classes = len(df['Emotion'].unique())
+model = RNNClassifier(vocab_size, emb_dim, hidden_dim, num_classes)
+
+# --- Training Loop (simplified) ---
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.CrossEntropyLoss()
+
+for epoch in range(5):
+    for inputs, labels in dataloader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
